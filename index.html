@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>财务工作台</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:#f2f3f7;color:#1c1c1e;padding-bottom:80px;font-size:15px}
+.header{background:linear-gradient(135deg,#4a6cf7,#6a4af7);color:#fff;padding:18px 16px 22px;border-radius:0 0 20px 20px}
+.header h1{font-size:19px;font-weight:600;margin-bottom:14px}
+.summary{display:flex;gap:10px}
+.summary .box{flex:1;background:rgba(255,255,255,.18);border-radius:12px;padding:10px 8px;text-align:center}
+.summary .box .label{font-size:11px;opacity:.85;margin-bottom:4px}
+.summary .box .val{font-size:16px;font-weight:700;word-break:break-all}
+.tabs{display:flex;background:#fff;margin:12px 12px 0;border-radius:12px;padding:4px;gap:4px;position:sticky;top:8px;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.tabs button{flex:1;border:none;background:transparent;padding:9px 4px;font-size:13px;border-radius:9px;color:#666;font-weight:500}
+.tabs button.active{background:#4a6cf7;color:#fff}
+.page{display:none;padding:12px}
+.page.active{display:block}
+.card{background:#fff;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.card h3{font-size:15px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.row{display:flex;gap:8px;margin-bottom:8px}
+.row>*{flex:1}
+input,select,textarea{width:100%;padding:11px 12px;border:1px solid #e0e0e5;border-radius:10px;font-size:15px;background:#fafafa;font-family:inherit;color:#1c1c1e}
+input:focus,select:focus{outline:none;border-color:#4a6cf7;background:#fff}
+button.btn{width:100%;padding:12px;border:none;border-radius:10px;background:#4a6cf7;color:#fff;font-size:15px;font-weight:600;margin-top:4px}
+button.btn:active{opacity:.8}
+button.gray{background:#eee;color:#333}
+button.red{background:#ff3b30}
+button.green{background:#34c759}
+button.mini{padding:6px 10px;font-size:12px;width:auto;border-radius:8px;margin:0}
+.list-item{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid #f0f0f3}
+.list-item:last-child{border-bottom:none}
+.list-item .info{flex:1;min-width:0}
+.list-item .t1{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.list-item .t2{font-size:11px;color:#999;margin-top:2px}
+.list-item .amt{font-size:15px;font-weight:700;margin-left:8px;white-space:nowrap}
+.amt.in{color:#34c759}
+.amt.out{color:#ff3b30}
+.empty{text-align:center;color:#bbb;font-size:13px;padding:20px 0}
+.bar-wrap{height:8px;background:#f0f0f3;border-radius:4px;overflow:hidden;margin-top:6px}
+.bar{height:100%;border-radius:4px;transition:width .3s}
+.bar.ok{background:#34c759}
+.bar.warn{background:#ff9500}
+.bar.over{background:#ff3b30}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:6px;background:#eef1ff;color:#4a6cf7;margin-right:6px}
+.chart-box{position:relative;height:220px}
+.month-nav{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:12px}
+.month-nav button{border:none;background:#fff;width:34px;height:34px;border-radius:50%;font-size:18px;color:#4a6cf7;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.month-nav .m{font-size:16px;font-weight:600;min-width:110px;text-align:center}
+.debt-card{background:#fff;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.debt-card .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.debt-card .name{font-size:15px;font-weight:600}
+.debt-card .nums{display:flex;gap:8px;font-size:12px;color:#666;margin-bottom:6px}
+.debt-card .nums span{flex:1}
+.debt-card .nums b{display:block;font-size:14px;color:#1c1c1e;margin-top:2px}
+.toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.8);color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:999}
+.toast.show{opacity:1}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:flex-end;z-index:100}
+.modal.show{display:flex}
+.modal-content{background:#fff;width:100%;border-radius:20px 20px 0 0;padding:18px;max-height:85vh;overflow-y:auto}
+.modal-content h3{margin-bottom:14px;font-size:16px}
+.modal .row{margin-bottom:10px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>💰 财务工作台</h1>
+  <div class="summary">
+    <div class="box"><div class="label">本月收入</div><div class="val" id="sumIn">0</div></div>
+    <div class="box"><div class="label">本月支出</div><div class="val" id="sumOut">0</div></div>
+    <div class="box"><div class="label">本月结余</div><div class="val" id="sumBal">0</div></div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="active" data-page="home">首页</button>
+  <button data-page="add">记账</button>
+  <button data-page="debt">房贷/债务</button>
+  <button data-page="chart">图表</button>
+  <button data-page="set">设置</button>
+</div>
+
+<!-- 首页 -->
+<div class="page active" id="page-home">
+  <div class="month-nav">
+    <button onclick="changeMonth(-1)">‹</button>
+    <div class="m" id="curMonth"></div>
+    <button onclick="changeMonth(1)">›</button>
+  </div>
+
+  <div class="card">
+    <h3>预算执行</h3>
+    <div id="budgetList"></div>
+  </div>
+
+  <div class="card">
+    <h3>本月流水</h3>
+    <div id="flowList"></div>
+  </div>
+
+  <div class="card">
+    <h3>房贷 / 债务总览</h3>
+    <div id="debtOverview"></div>
+  </div>
+</div>
+
+<!-- 记账 -->
+<div class="page" id="page-add">
+  <div class="card">
+    <h3>记一笔</h3>
+    <div class="row">
+      <select id="recType" onchange="onTypeChange()">
+        <option value="in">收入</option>
+        <option value="out">支出</option>
+        <option value="repay">还款</option>
+      </select>
+      <input type="date" id="recDate">
+    </div>
+    <div class="row">
+      <select id="recCat"></select>
+    </div>
+    <div class="row" id="debtSelectRow" style="display:none">
+      <select id="recDebt"></select>
+    </div>
+    <div class="row">
+      <input type="number" id="recAmt" placeholder="金额" inputmode="decimal">
+    </div>
+    <div class="row">
+      <input type="text" id="recNote" placeholder="备注（可选）">
+    </div>
+    <button class="btn" onclick="addRecord()">保存</button>
+  </div>
+</div>
+
+<!-- 债务 -->
+<div class="page" id="page-debt">
+  <div class="card">
+    <h3>新增房贷 / 债务</h3>
+    <div class="row">
+      <select id="debtKind">
+        <option value="mortgage">房贷</option>
+        <option value="debt">债务</option>
+      </select>
+      <input type="text" id="debtName" placeholder="名称（如 招行房贷）">
+    </div>
+    <div class="row">
+      <input type="number" id="debtTotal" placeholder="总欠款" inputmode="decimal">
+    </div>
+    <div class="row">
+      <input type="number" id="debtPaid" placeholder="已还（可填0）" inputmode="decimal">
+    </div>
+    <button class="btn" onclick="addDebt()">添加</button>
+  </div>
+  <div id="debtList"></div>
+</div>
+
+<!-- 图表 -->
+<div class="page" id="page-chart">
+  <div class="card">
+    <h3>本月支出分类</h3>
+    <div class="chart-box"><canvas id="pieChart"></canvas></div>
+  </div>
+  <div class="card">
+    <h3>近6个月收支趋势</h3>
+    <div class="chart-box"><canvas id="barChart"></canvas></div>
+  </div>
+</div>
+
+<!-- 设置 -->
+<div class="page" id="page-set">
+  <div class="card">
+    <h3>月度预算</h3>
+    <div id="budgetSet"></div>
+  </div>
+  <div class="card">
+    <h3>数据备份</h3>
+    <button class="btn gray" onclick="exportData()">导出数据（备份）</button>
+    <button class="btn gray" style="margin-top:8px" onclick="document.getElementById('importFile').click()">导入数据（恢复）</button>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+    <button class="btn red" style="margin-top:8px" onclick="clearAll()">清空所有数据</button>
+    <p style="font-size:12px;color:#999;margin-top:10px;line-height:1.6">数据存在本机浏览器。换手机、清缓存会丢失，请定期导出备份。</p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal" id="modal">
+  <div class="modal-content" id="modalContent"></div>
+</div>
+
+<script>
+const DEFAULT_CATS = {
+  in: ['工资收入','副业收入','其他收入'],
+  out: ['餐饮娱乐','健康','交通','通讯','水电燃气','购物','其他日常','房贷还款','其他支出']
+};
+const REPAY_CATS = ['房贷还款','债务还款'];
+
+let DB = {
+  records: [],
+  debts: [],
+  budgets: {},
+  cats: JSON.parse(JSON.stringify(DEFAULT_CATS))
+};
+
+function load(){
+  try{
+    const s = localStorage.getItem('financeDB');
+    if(s){ const d = JSON.parse(s); DB = Object.assign(DB, d); }
+  }catch(e){}
+  if(!DB.cats) DB.cats = JSON.parse(JSON.stringify(DEFAULT_CATS));
+}
+function save(){ localStorage.setItem('financeDB', JSON.stringify(DB)); }
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function fmt(n){ return '¥' + Number(n||0).toLocaleString('zh-CN',{minimumFractionDigits:0,maximumFractionDigits:2}); }
+function today(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function curMonthStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+
+let viewMonth = curMonthStr();
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._t); t._t = setTimeout(()=>t.classList.remove('show'),1800);
+}
+
+document.querySelectorAll('.tabs button').forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    document.getElementById('page-'+b.dataset.page).classList.add('active');
+    if(b.dataset.page==='home') renderHome();
+    if(b.dataset.page==='debt') renderDebts();
+    if(b.dataset.page==='chart') renderCharts();
+    if(b.dataset.page==='set') renderBudgetSet();
+    if(b.dataset.page==='add') onTypeChange();
+    window.scrollTo(0,0);
+  };
+});
+
+function changeMonth(d){
+  const [y,m] = viewMonth.split('-').map(Number);
+  const dt = new Date(y, m-1+d, 1);
+  viewMonth = dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');
+  renderHome();
+}
+
+function onTypeChange(){
+  const type = document.getElementById('recType').value;
+  const catSel = document.getElementById('recCat');
+  catSel.innerHTML = '';
+  let list;
+  if(type==='in') list = DB.cats.in;
+  else if(type==='out') list = DB.cats.out;
+  else list = REPAY_CATS;
+  list.forEach(c=>{
+    const o = document.createElement('option'); o.value=c; o.textContent=c; catSel.appendChild(o);
+  });
+  const dRow = document.getElementById('debtSelectRow');
+  if(type==='repay'){
+    dRow.style.display='flex';
+    const ds = document.getElementById('recDebt');
+    ds.innerHTML='';
+    if(DB.debts.length===0){
+      const o=document.createElement('option'); o.value=''; o.textContent='（还没有房贷/债务）'; ds.appendChild(o);
+    }else{
+      DB.debts.forEach(d=>{
+        const o=document.createElement('option'); o.value=d.id;
+        o.textContent = d.name + '（剩余 ' + fmt(d.total-d.paid) + '）';
+        ds.appendChild(o);
+      });
+    }
+  }else{
+    dRow.style.display='none';
+  }
+}
+
+function addRecord(){
+  const type = document.getElementById('recType').value;
+  const date = document.getElementById('recDate').value || today();
+  const cat = document.getElementById('recCat').value;
+  const amt = parseFloat(document.getElementById('recAmt').value);
+  const note = document.getElementById('recNote').value.trim();
+  const debtId = type==='repay' ? document.getElementById('recDebt').value : '';
+
+  if(!amt || amt<=0){ toast('请输入正确金额'); return; }
+  if(type==='repay' && !debtId){ toast('请先添加房贷/债务'); return; }
+
+  DB.records.push({id:uid(), type, date, cat, amount:amt, note, debtId});
+  save();
+
+  if(type==='repay' && debtId){
+    const d = DB.debts.find(x=>x.id===debtId);
+    if(d){
+      d.paid += amt;
+      d.logs.push({date, amount:amt, note});
+      if(d.paid > d.total) d.paid = d.total;
+      save();
+    }
+  }
+  document.getElementById('recAmt').value='';
+  document.getElementById('recNote').value='';
+  toast('已记录 ✓');
+  onTypeChange();
+}
+
+function renderHome(){
+  document.getElementById('curMonth').textContent = viewMonth.replace('-','年')+'月';
+  const recs = DB.records.filter(r=>r.date.startsWith(viewMonth));
+  let tin=0, tout=0;
+  recs.forEach(r=>{
+    if(r.type==='in') tin += r.amount;
+    else tout += r.amount;
+  });
+  document.getElementById('sumIn').textContent = fmt(tin);
+  document.getElementById('sumOut').textContent = fmt(tout);
+  document.getElementById('sumBal').textContent = fmt(tin-tout);
+
+  const bl = document.getElementById('budgetList');
+  bl.innerHTML='';
+  const spent = {};
+  recs.filter(r=>r.type==='out').forEach(r=>{ spent[r.cat]=(spent[r.cat]||0)+r.amount; });
+  const keys = Object.keys(DB.budgets);
+  if(keys.length===0){
+    bl.innerHTML = '<div class="empty">还没设预算，去「设置」里加</div>';
+  }else{
+    keys.forEach(k=>{
+      const b = DB.budgets[k];
+      const s = spent[k]||0;
+      const pct = Math.min(100, s/b*100);
+      let cls = 'ok';
+      if(s > b) cls='over'; else if(s > b*0.8) cls='warn';
+      const div = document.createElement('div');
+      div.style.marginBottom='12px';
+      div.innerHTML = `
+        <div style="display:flex;justify-content:space-between;font-size:13px">
+          <span>${k}</span>
+          <span style="color:${s>b?'#ff3b30':'#666'}">${fmt(s)} / ${fmt(b)}</span>
+        </div>
+        <div class="bar-wrap"><div class="bar ${cls}" style="width:${pct}%"></div></div>`;
+      bl.appendChild(div);
+    });
+  }
+
+  const fl = document.getElementById('flowList');
+  fl.innerHTML='';
+  if(recs.length===0){
+    fl.innerHTML='<div class="empty">本月还没有记录</div>';
+  }else{
+    recs.slice().sort((a,b)=>b.date.localeCompare(a.date)).forEach(r=>{
+      const isIn = r.type==='in';
+      const div = document.createElement('div');
+      div.className='list-item';
+      let catName = r.cat;
+      if(r.type==='repay'){
+        const d = DB.debts.find(x=>x.id===r.debtId);
+        catName = (d?d.name:'') + ' · ' + r.cat;
+      }
+      div.innerHTML = `
+        <div class="info">
+          <div class="t1">${catName}</div>
+          <div class="t2">${r.date}${r.note?' · '+r.note:''}</div>
+        </div>
+        <div class="amt ${isIn?'in':'out'}">${isIn?'+':'-'}${fmt(r.amount)}</div>
+        <button class="btn mini gray" style="margin-left:8px" onclick="delRecord('${r.id}')">删</button>`;
+      fl.appendChild(div);
+    });
+  }
+
+  const ov = document.getElementById('debtOverview');
+  if(DB.debts.length===0){
+    ov.innerHTML='<div class="empty">还没有房贷/债务</div>';
+  }else{
+    let t=0,p=0;
+    DB.debts.forEach(d=>{ t+=d.total; p+=d.paid; });
+    ov.innerHTML = `
+      <div style="display:flex;gap:8px;font-size:12px;color:#666;margin-bottom:6px">
+        <span style="flex:1">总欠款<b style="display:block;font-size:15px;color:#1c1c1e">${fmt(t)}</b></span>
+        <span style="flex:1">已还<b style="display:block;font-size:15px;color:#34c759">${fmt(p)}</b></span>
+        <span style="flex:1">剩余<b style="display:block;font-size:15px;color:#ff3b30">${fmt(t-p)}</b></span>
+      </div>
+      <div class="bar-wrap"><div class="bar ok" style="width:${t>0?Math.min(100,p/t*100):0}%"></div></div>`;
+  }
+}
+
+function delRecord(id){
+  if(!confirm('确定删除这条记录？')) return;
+  const r = DB.records.find(x=>x.id===id);
+  if(r && r.type==='repay' && r.debtId){
+    const d = DB.debts.find(x=>x.id===r.debtId);
+    if(d){ d.paid = Math.max(0, d.paid - r.amount); }
+  }
+  DB.records = DB.records.filter(x=>x.id!==id);
+  save(); renderHome();
+}
+
+function addDebt(){
+  const kind = document.getElementById('debtKind').value;
+  const name = document.getElementById('debtName').value.trim();
+  const total = parseFloat(document.getElementById('debtTotal').value);
+  const paid = parseFloat(document.getElementById('debtPaid').value)||0;
+  if(!name){ toast('请输入名称'); return; }
+  if(!total || total<=0){ toast('请输入总欠款'); return; }
+  DB.debts.push({id:uid(), kind, name, total, paid:Math.min(paid,total), logs:[]});
+  save();
+  document.getElementById('debtName').value='';
+  document.getElementById('debtTotal').value='';
+  document.getElementById('debtPaid').value='';
+  toast('已添加 ✓');
+  renderDebts(); onTypeChange();
+}
+
+function renderDebts(){
+  const box = document.getElementById('debtList');
+  box.innerHTML='';
+  if(DB.debts.length===0){
+    box.innerHTML='<div class="card"><div class="empty">还没有记录</div></div>';
+    return;
+  }
+  DB.debts.forEach(d=>{
+    const remain = Math.max(0, d.total-d.paid);
+    const pct = d.total>0 ? Math.min(100, d.paid/d.total*100) : 0;
+    const div = document.createElement('div');
+    div.className='debt-card';
+    div.innerHTML = `
+      <div class="top">
+        <span class="name"><span class="tag">${d.kind==='mortgage'?'房贷':'债务'}</span>${d.name}</span>
+        <button class="btn mini red" onclick="delDebt('${d.id}')">删除</button>
+      </div>
+      <div class="nums">
+        <span>总欠款<b>${fmt(d.total)}</b></span>
+        <span>已还<b style="color:#34c759">${fmt(d.paid)}</b></span>
+        <span>剩余<b style="color:#ff3b30">${fmt(remay)}</b></span>
+      </div>
+      <div class="bar-wrap"><div class="bar ok" style="width:${pct}%"></div></div>
+      <div style="font-size:11px;color:#999;margin-top:6px">已还 ${pct.toFixed(1)}%</div>`;
+    box.appendChild(div);
+  });
+}
+
+function delDebt(id){
+  if(!confirm('删除这笔，相关还款记录也会删掉，确定？')) return;
+  DB.debts = DB.debts.filter(x=>x.id!==id);
+  DB.records = DB.records.filter(r=>r.debtId!==id);
+  save(); renderDebts(); renderHome(); onTypeChange();
+}
+
+let pieChart, barChart;
+function renderCharts(){
+  const recs = DB.records.filter(r=>r.date.startsWith(viewMonth) && r.type==='out');
+  const map = {};
+  recs.forEach(r=>{ map[r.cat]=(map[r.cat]||0)+r.amount; });
+  const labels = Object.keys(map);
+  const data = labels.map(k=>map[k]);
+
+  if(pieChart) pieChart.destroy();
+  const pieCtx = document.getElementById('pieChart');
+  if(labels.length===0){
+    pieCtx.parentElement.innerHTML = '<div class="empty">本月还没有支出</div>';
+  }else{
+    pieChart = new Chart(pieCtx, {
+      type:'doughnut',
+      data:{ labels, datasets:[{ data, backgroundColor:['#4a6cf7','#ff6b6b','#ffd93d','#6bcB77','#a66cff','#ff9f43','#4dd0e1','#f06292','#90a4ae'] }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{size:11}, padding:10 } } } }
+    });
+  }
+
+  const months = [];
+  const [y,m] = viewMonth.split('-').map(Number);
+  for(let i=5;i>=0;i--){
+    const dt = new Date(y, m-1-i, 1);
+    months.push(dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0'));
+  }
+  const ins = months.map(mo=>DB.records.filter(r=>r.date.startsWith(mo)&&r.type==='in').reduce((s,r)=>s+r.amount,0));
+  const outs = months.map(mo=>DB.records.filter(r=>r.date.startsWith(mo)&&r.type!=='in').reduce((s,r)=>s+r.amount,0));
+  const mLabels = months.map(mo=>mo.slice(5)+'月');
+
+  if(barChart) barChart.destroy();
+  barChart = new Chart(document.getElementById('barChart'), {
+    type:'bar',
+    data:{ labels:mLabels, datasets:[
+      { label:'收入', data:ins, backgroundColor:'#34c759', borderRadius:6 },
+      { label:'支出', data:outs, backgroundColor:'#ff3b30', borderRadius:6 }
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'bottom', labels:{font:{size:11}} } },
+      scales:{ y:{ beginAtZero:true, ticks:{font:{size:10}} }, x:{ ticks:{font:{size:10}} } } }
+  });
+}
+
+function renderBudgetSet(){
+  const box = document.getElementById('budgetSet');
+  box.innerHTML='';
+  DB.cats.out.forEach(c=>{
+    const div = document.createElement('div');
+    div.className='row';
+    div.style.alignItems='center';
+    div.innerHTML = `
+      <span style="flex:1;font-size:14px">${c}</span>
+      <input type="number" placeholder="不限" value="${DB.budgets[c]||''}" style="flex:1" onchange="setBudget('${c}', this.value)">`;
+    box.appendChild(div);
+  });
+}
+function setBudget(cat, val){
+  const v = parseFloat(val);
+  if(!v || v<=0) delete DB.budgets[cat];
+  else DB.budgets[cat] = v;
+  save();
+}
+
+function exportData(){
+  const blob = new Blob([JSON.stringify(DB,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '财务备份_'+today()+'.json';
+  a.click();
+  toast('已导出');
+}
+function importData(e){
+  const f = e.target.files[0];
+  if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    try{
+      const d = JSON.parse(ev.target.result);
+      if(!d.records || !d.debts) throw 0;
+      DB = Object.assign(DB, d);
+      save(); toast('导入成功 ✓');
+      renderHome(); renderDebts(); renderBudgetSet();
+    }catch(err){ toast('文件格式不对'); }
+  };
+  reader.readAsText(f);
+  e.target.value='';
+}
+function clearAll(){
+  if(!confirm('会删除所有数据，确定？')) return;
+  if(!confirm('再确认一次：真的清空？')) return;
+  localStorage.removeItem('financeDB');
+  DB = { records:[], debts:[], budgets:{}, cats:JSON.parse(JSON.stringify(DEFAULT_CATS)) };
+  save(); renderHome(); renderDebts(); renderBudgetSet();
+  toast('已清空');
+}
+
+load();
+document.getElementById('recDate').value = today();
+onTypeChange();
+renderHome();
+</script>
+</body>
+</html>
